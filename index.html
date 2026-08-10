@@ -33,6 +33,197 @@
   <link rel="manifest" href="manifest.json">
 </head>
 <body>
+  <!-- Razorpay Checkout Script -->
+  <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
+
+  <script>
+    // Razorpay Web Checkout Bridge
+    window.openRazorpayCheckout = function(options, onSuccess, onFailure, onDismiss) {
+      if (typeof Razorpay === 'undefined') {
+        if (onFailure) onFailure('Razorpay SDK not loaded');
+        return;
+      }
+      var rzpOptions = {
+        key: options.key,
+        amount: options.amount, // in paise
+        currency: options.currency || 'INR',
+        name: options.name || 'RAMA Foundation',
+        description: options.description || 'Event Registration Fee',
+        image: options.image || 'assets/images/logo.jpg',
+        prefill: {
+          name: options.prefillName || '',
+          email: options.prefillEmail || '',
+          contact: options.prefillContact || ''
+        },
+        theme: {
+          color: options.themeColor || '#1B5E20'
+        },
+        handler: function (response) {
+          if (onSuccess) {
+            onSuccess(response.razorpay_payment_id);
+          }
+        },
+        modal: {
+          ondismiss: function() {
+            if (onDismiss) onDismiss();
+          }
+        }
+      };
+      var rzp = new Razorpay(rzpOptions);
+      rzp.on('payment.failed', function (response) {
+        if (onFailure) onFailure(response.error.description || 'Payment Failed');
+      });
+      rzp.open();
+    };
+
+    // Application Form PDF / Print Trigger
+    window.downloadApplicationForm = function(eventTitle, eventLocation, lastDate, requiredDocsList) {
+      var printWindow = window.open('', '_blank');
+      if (!printWindow) {
+        alert('Please allow popups to download/print the application form.');
+        return;
+      }
+      var docsHtml = requiredDocsList.map(function(doc) {
+        return '<li style="margin-bottom: 8px;">[ &nbsp; ] ' + doc + '</li>';
+      }).join('');
+
+      var formHtml = `
+<!DOCTYPE html>
+<html>
+<head>
+  <title>RAMA Foundation - Application Form - ${eventTitle}</title>
+  <style>
+    body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; padding: 40px; color: #222; max-width: 800px; margin: auto; }
+    .header { text-align: center; border-bottom: 2px solid #1B5E20; padding-bottom: 16px; margin-bottom: 24px; }
+    .header h1 { color: #1B5E20; margin: 0; font-size: 24px; text-transform: uppercase; }
+    .header p { margin: 4px 0; color: #555; font-size: 13px; }
+    .form-title { text-align: center; background: #e8f5e9; padding: 10px; border-radius: 8px; font-weight: bold; font-size: 16px; margin-bottom: 24px; color: #1B5E20; border: 1px dashed #2E7D32; }
+    .photo-box { width: 130px; height: 150px; border: 2px dashed #999; float: right; margin-left: 20px; margin-bottom: 15px; display: flex; align-items: center; justify-content: center; text-align: center; font-size: 12px; color: #777; }
+    .field-row { margin-bottom: 18px; display: flex; align-items: baseline; clear: both; }
+    .field-label { font-weight: bold; width: 220px; font-size: 14px; }
+    .field-line { flex-grow: 1; border-bottom: 1px dotted #444; height: 20px; }
+    .section-title { font-size: 15px; font-weight: bold; color: #1B5E20; margin: 24px 0 12px 0; border-bottom: 1px solid #ddd; padding-bottom: 4px; }
+    .docs-list { list-style: none; padding-left: 0; font-size: 13px; }
+    .declaration { font-size: 12px; color: #444; margin-top: 30px; line-height: 1.6; border: 1px solid #eee; padding: 12px; border-radius: 6px; background: #fafafa; }
+    .sig-row { margin-top: 50px; display: flex; justify-content: space-between; font-size: 13px; font-weight: bold; }
+    @media print {
+      body { padding: 20px; }
+      .no-print { display: none; }
+    }
+  </style>
+</head>
+<body>
+  <div class="no-print" style="margin-bottom: 20px; text-align: right;">
+    <button onclick="window.print()" style="background: #1B5E20; color: white; border: none; padding: 10px 20px; font-size: 14px; font-weight: bold; border-radius: 6px; cursor: pointer;">
+      🖨️ Print / Save as PDF
+    </button>
+  </div>
+
+  <div class="header">
+    <h1>RAMA FOUNDATION (RAMAF)</h1>
+    <p>Empowering Communities Through Sustainable Agriculture & Skill Development</p>
+    <p>HQ: RIMS Road, Imphal West, Manipur - 795004 | Email: ramafoundationimphal@gmail.com | Phone: +91 94360 25237</p>
+  </div>
+
+  <div class="form-title">
+    OFFICIAL TRAINING & EVENT APPLICATION FORM
+  </div>
+
+  <div class="photo-box">
+    Affix Recent<br>Passport Size<br>Photograph
+  </div>
+
+  <div class="field-row">
+    <span class="field-label">Training / Event Name:</span>
+    <span style="font-weight: bold; color: #1B5E20;">${eventTitle}</span>
+  </div>
+  <div class="field-row">
+    <span class="field-label">Venue / Location:</span>
+    <span>${eventLocation}</span>
+  </div>
+  <div class="field-row">
+    <span class="field-label">Last Date of Submission:</span>
+    <span style="color: #c62828; font-weight: bold;">${lastDate}</span>
+  </div>
+
+  <div class="section-title">1. APPLICANT PERSONAL INFORMATION</div>
+
+  <div class="field-row">
+    <span class="field-label">Full Name (in Block Letters):</span>
+    <div class="field-line"></div>
+  </div>
+  <div class="field-row">
+    <span class="field-label">Father's / Husband's Name:</span>
+    <div class="field-line"></div>
+  </div>
+  <div class="field-row">
+    <span class="field-label">Date of Birth (DD/MM/YYYY):</span>
+    <div class="field-line" style="max-width: 150px;"></div>
+    <span class="field-label" style="width: 80px; margin-left: 20px;">Gender:</span>
+    <span style="font-size: 13px;">[ &nbsp; ] Male &nbsp; [ &nbsp; ] Female &nbsp; [ &nbsp; ] Other</span>
+  </div>
+  <div class="field-row">
+    <span class="field-label">Category:</span>
+    <span style="font-size: 13px;">[ &nbsp; ] General &nbsp; [ &nbsp; ] OBC &nbsp; [ &nbsp; ] SC &nbsp; [ &nbsp; ] ST &nbsp; [ &nbsp; ] Relief Camp Inmate &nbsp; [ &nbsp; ] PwD</span>
+  </div>
+  <div class="field-row">
+    <span class="field-label">Contact Mobile No.:</span>
+    <div class="field-line" style="max-width: 250px;"></div>
+    <span class="field-label" style="width: 80px; margin-left: 20px;">Alt No:</span>
+    <div class="field-line"></div>
+  </div>
+  <div class="field-row">
+    <span class="field-label">Email ID:</span>
+    <div class="field-line"></div>
+  </div>
+  <div class="field-row">
+    <span class="field-label">Permanent Address:</span>
+    <div class="field-line"></div>
+  </div>
+  <div class="field-row">
+    <span class="field-label">District & PIN Code:</span>
+    <div class="field-line"></div>
+  </div>
+  <div class="field-row">
+    <span class="field-label">Educational Qualification:</span>
+    <div class="field-line"></div>
+  </div>
+
+  <div class="section-title">2. MANDATORY DOCUMENTS REQUIRED (Tick enclosed copies)</div>
+  <ul class="docs-list">
+    ${docsHtml}
+  </ul>
+
+  <div class="declaration">
+    <strong>Declaration:</strong> I hereby declare that all particulars stated in this application are true and complete to the best of my knowledge and belief. I agree to abide by the rules and regulations of RAMA Foundation during the course of the training program.
+  </div>
+
+  <div class="sig-row">
+    <div>Date: ____________________<br><br>Place: ___________________</div>
+    <div style="text-align: right;">________________________________<br>Signature / Thumb Impression of Applicant</div>
+  </div>
+
+  <div style="margin-top: 40px; border-top: 1px dashed #999; padding-top: 15px; font-size: 11px; text-align: center; color: #666;">
+    * Completed form along with self-attested documents must be submitted to RAMA Foundation Office on or before ${lastDate}.
+  </div>
+
+  <script>
+    // Auto-trigger print dialog for convenient Save as PDF
+    window.onload = function() {
+      setTimeout(function() {
+        window.print();
+      }, 500);
+    };
+  </script>
+</body>
+</html>
+      `;
+      printWindow.document.open();
+      printWindow.document.write(formHtml);
+      printWindow.document.close();
+    };
+  </script>
+
   <script src="flutter_bootstrap.js" async></script>
 </body>
 </html>
