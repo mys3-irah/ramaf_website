@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "1087551187437",
+    "project_id": "ramaf-database",
+    "storage_bucket": "ramaf-database.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1087551187437:android:0c4f7bdf07f6ddf4eb5fe4",
+        "android_client_info": {
+          "package_name": "com.example.ramaf_website"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAFOrtUNEBRVsXaUnE949ehv9ZRa6t68tI"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
