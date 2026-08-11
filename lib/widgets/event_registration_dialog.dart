@@ -1,9 +1,11 @@
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import '../theme/app_theme.dart';
 import '../services/firebase_service.dart';
 import '../services/razorpay_service.dart';
+import '../services/cloudinary_service.dart';
 
 class EventRegistrationDialog extends StatefulWidget {
   final String eventId;
@@ -41,6 +43,11 @@ class _EventRegistrationDialogState extends State<EventRegistrationDialog> {
   String _selectedCategory = 'General';
   bool _agreedToTerms = true;
   bool _isSubmitting = false;
+  String _submitStatusText = 'Processing...';
+
+  // File upload state for Cloudinary
+  PlatformFile? _pickedPhoto;
+  PlatformFile? _pickedDocument;
 
   final List<String> _districts = [
     'Imphal West',
@@ -97,12 +104,64 @@ class _EventRegistrationDialogState extends State<EventRegistrationDialog> {
     super.dispose();
   }
 
+  // Pick applicant passport photo
+  Future<void> _pickPhoto() async {
+    try {
+      final result = await FilePicker.platform.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: ['jpg', 'jpeg', 'png', 'webp'],
+        withData: true,
+      );
+
+      if (result != null && result.files.isNotEmpty) {
+        setState(() {
+          _pickedPhoto = result.files.first;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to select image: $e'),
+            backgroundColor: Colors.redAccent,
+          ),
+        );
+      }
+    }
+  }
+
+  // Pick ID / Concession certificate document
+  Future<void> _pickDocument() async {
+    try {
+      final result = await FilePicker.platform.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: ['pdf', 'jpg', 'jpeg', 'png'],
+        withData: true,
+      );
+
+      if (result != null && result.files.isNotEmpty) {
+        setState(() {
+          _pickedDocument = result.files.first;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to select document: $e'),
+            backgroundColor: Colors.redAccent,
+          ),
+        );
+      }
+    }
+  }
+
   Future<void> _handleRegistration() async {
     if (!_formKey.currentState!.validate()) return;
     if (!_agreedToTerms) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Please agree to bring required documents.'),
+          content: Text('Please agree to terms and bring required documents.'),
           backgroundColor: Colors.redAccent,
         ),
       );
@@ -119,14 +178,54 @@ class _EventRegistrationDialogState extends State<EventRegistrationDialog> {
       return;
     }
 
-    setState(() => _isSubmitting = true);
+    setState(() {
+      _isSubmitting = true;
+      _submitStatusText = 'Starting registration...';
+    });
 
     String paymentId = 'EXEMPTED';
     String paymentStatus = 'Exempted';
+    String? photoUrl;
+    String? docUrl;
 
     try {
-      // If fee > 0, trigger Razorpay payment gateway
+      // 1. Upload files to Cloudinary if attached
+      if (_pickedPhoto != null && _pickedPhoto!.bytes != null) {
+        setState(() => _submitStatusText = 'Uploading photo to Cloudinary...');
+        final photoResult = await CloudinaryService().uploadFile(
+          bytes: _pickedPhoto!.bytes!,
+          fileName: 'photo_${DateTime.now().millisecondsSinceEpoch}_${_pickedPhoto!.name}',
+          folder: 'ramaf_registrations/photos',
+          resourceType: 'image',
+        );
+
+        if (photoResult.isSuccess) {
+          photoUrl = photoResult.secureUrl;
+        } else {
+          debugPrint('Notice: Photo upload notice: ${photoResult.errorMessage}');
+        }
+      }
+
+      if (_pickedDocument != null && _pickedDocument!.bytes != null) {
+        setState(() => _submitStatusText = 'Uploading document to Cloudinary...');
+        final isPdf = _pickedDocument!.name.toLowerCase().endsWith('.pdf');
+        final docResult = await CloudinaryService().uploadFile(
+          bytes: _pickedDocument!.bytes!,
+          fileName: 'doc_${DateTime.now().millisecondsSinceEpoch}_${_pickedDocument!.name}',
+          folder: 'ramaf_registrations/documents',
+          resourceType: isPdf ? 'raw' : 'auto',
+        );
+
+        if (docResult.isSuccess) {
+          docUrl = docResult.secureUrl;
+        } else {
+          debugPrint('Notice: Document upload notice: ${docResult.errorMessage}');
+        }
+      }
+
+      // 2. If fee > 0, trigger Razorpay payment gateway
       if (_effectiveFee > 0) {
+        setState(() => _submitStatusText = 'Opening payment gateway...');
         final paymentResult = await RazorpayService.openCheckout(
           amountInRupees: _effectiveFee,
           eventTitle: widget.eventTitle,
@@ -152,7 +251,8 @@ class _EventRegistrationDialogState extends State<EventRegistrationDialog> {
         paymentStatus = 'Paid';
       }
 
-      // Save registration to Firebase Firestore
+      // 3. Save registration record into Firebase Firestore
+      setState(() => _submitStatusText = 'Recording registration in Firebase...');
       final regData = RegistrationData(
         eventId: widget.eventId,
         eventTitle: widget.eventTitle,
@@ -166,6 +266,8 @@ class _EventRegistrationDialogState extends State<EventRegistrationDialog> {
         category: _selectedCategory,
         isConcessionApplied: _isConcessionEligible,
         feePaid: _effectiveFee,
+        photoUrl: photoUrl,
+        documentUrl: docUrl,
         paymentId: paymentId,
         paymentStatus: paymentStatus,
         registrationDate: DateTime.now(),
@@ -176,7 +278,7 @@ class _EventRegistrationDialogState extends State<EventRegistrationDialog> {
       if (mounted) {
         setState(() => _isSubmitting = false);
         Navigator.of(context).pop(); // Close registration dialog
-        _showSuccessDialog(registrationId, paymentId, paymentStatus);
+        _showSuccessDialog(registrationId, paymentId, paymentStatus, photoUrl, docUrl);
       }
     } catch (e) {
       if (mounted) {
@@ -191,7 +293,13 @@ class _EventRegistrationDialogState extends State<EventRegistrationDialog> {
     }
   }
 
-  void _showSuccessDialog(String regId, String paymentId, String paymentStatus) {
+  void _showSuccessDialog(
+    String regId,
+    String paymentId,
+    String paymentStatus,
+    String? photoUrl,
+    String? docUrl,
+  ) {
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -234,7 +342,7 @@ class _EventRegistrationDialogState extends State<EventRegistrationDialog> {
                 decoration: BoxDecoration(
                   color: AppTheme.mintGreen,
                   borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: AppTheme.primaryGreen.withOpacity(0.2)),
+                  border: Border.all(color: AppTheme.primaryGreen.withValues(alpha: 0.2)),
                 ),
                 child: Column(
                   children: [
@@ -286,6 +394,26 @@ class _EventRegistrationDialogState extends State<EventRegistrationDialog> {
                         ],
                       ),
                     ],
+                    if (photoUrl != null && photoUrl.isNotEmpty) ...[
+                      const SizedBox(height: 4),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text('Photo Upload:', style: GoogleFonts.inter(fontSize: 11, color: AppTheme.textMuted)),
+                          Text('Uploaded to Cloudinary', style: GoogleFonts.inter(fontSize: 11, color: AppTheme.accentGreen, fontWeight: FontWeight.w600)),
+                        ],
+                      ),
+                    ],
+                    if (docUrl != null && docUrl.isNotEmpty) ...[
+                      const SizedBox(height: 4),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text('Proof Document:', style: GoogleFonts.inter(fontSize: 11, color: AppTheme.textMuted)),
+                          Text('Uploaded to Cloudinary', style: GoogleFonts.inter(fontSize: 11, color: AppTheme.accentGreen, fontWeight: FontWeight.w600)),
+                        ],
+                      ),
+                    ],
                   ],
                 ),
               ),
@@ -305,7 +433,7 @@ class _EventRegistrationDialogState extends State<EventRegistrationDialog> {
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
-                        'Important: Please bring 2 passport photos and your Aadhaar copy to orientation at RAMAF Center.',
+                        'Important: Please keep your Application ID saved for orientation at RAMAF Center.',
                         style: GoogleFonts.inter(fontSize: 11.5, color: Colors.amber.shade900),
                       ),
                     ),
@@ -342,7 +470,7 @@ class _EventRegistrationDialogState extends State<EventRegistrationDialog> {
       backgroundColor: Colors.white,
       insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
       child: Container(
-        constraints: const BoxConstraints(maxWidth: 620),
+        constraints: const BoxConstraints(maxWidth: 640),
         padding: const EdgeInsets.all(28),
         child: SingleChildScrollView(
           child: Form(
@@ -457,7 +585,7 @@ class _EventRegistrationDialogState extends State<EventRegistrationDialog> {
                     ),
                   ),
 
-                // Input Fields
+                // Section 1: Input Fields
                 Text(
                   '1. Participant Details',
                   style: GoogleFonts.outfit(fontSize: 15, fontWeight: FontWeight.bold, color: AppTheme.textDark),
@@ -590,9 +718,195 @@ class _EventRegistrationDialogState extends State<EventRegistrationDialog> {
                     border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                   ),
                 ),
+                const SizedBox(height: 24),
+
+                // Section 2: File Uploads (Powered by Cloudinary)
+                Row(
+                  children: [
+                    Text(
+                      '2. Documents & Photo Upload',
+                      style: GoogleFonts.outfit(fontSize: 15, fontWeight: FontWeight.bold, color: AppTheme.textDark),
+                    ),
+                    const SizedBox(width: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: Colors.blue.shade50,
+                        borderRadius: BorderRadius.circular(6),
+                        border: Border.all(color: Colors.blue.shade200),
+                      ),
+                      child: Text(
+                        'Cloudinary Storage',
+                        style: GoogleFonts.inter(fontSize: 10, fontWeight: FontWeight.w600, color: Colors.blue.shade700),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  'Upload your passport photograph and ID / concession certificates (optional or for fee-exempt categories).',
+                  style: GoogleFonts.inter(fontSize: 12, color: AppTheme.textMuted),
+                ),
+                const SizedBox(height: 14),
+
+                // Photo & Document Picker Cards
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Photo Box
+                    Expanded(
+                      child: Container(
+                        padding: const EdgeInsets.all(14),
+                        decoration: BoxDecoration(
+                          color: _pickedPhoto != null ? AppTheme.mintGreen.withValues(alpha: 0.4) : AppTheme.backgroundCard,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: _pickedPhoto != null ? AppTheme.primaryGreen : Colors.grey.shade300,
+                            width: _pickedPhoto != null ? 1.5 : 1.0,
+                          ),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                const Icon(Icons.account_box_outlined, size: 20, color: AppTheme.primaryGreen),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    'Passport Photo',
+                                    style: GoogleFonts.outfit(fontSize: 13, fontWeight: FontWeight.bold, color: AppTheme.textDark),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 8),
+                            if (_pickedPhoto != null) ...[
+                              Row(
+                                children: [
+                                  if (_pickedPhoto!.bytes != null)
+                                    ClipRRect(
+                                      borderRadius: BorderRadius.circular(6),
+                                      child: Image.memory(
+                                        _pickedPhoto!.bytes!,
+                                        width: 38,
+                                        height: 38,
+                                        fit: BoxFit.cover,
+                                      ),
+                                    ),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: Text(
+                                      _pickedPhoto!.name,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: GoogleFonts.inter(fontSize: 11.5, fontWeight: FontWeight.w600),
+                                    ),
+                                  ),
+                                  IconButton(
+                                    padding: EdgeInsets.zero,
+                                    constraints: const BoxConstraints(),
+                                    icon: const Icon(Icons.cancel, size: 18, color: Colors.grey),
+                                    onPressed: _isSubmitting ? null : () => setState(() => _pickedPhoto = null),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 6),
+                            ],
+                            OutlinedButton.icon(
+                              onPressed: _isSubmitting || _isRegistrationExpired ? null : _pickPhoto,
+                              icon: Icon(_pickedPhoto == null ? Icons.upload_file : Icons.refresh, size: 16),
+                              label: Text(
+                                _pickedPhoto == null ? 'Select Photo' : 'Change Photo',
+                                style: GoogleFonts.inter(fontSize: 11.5, fontWeight: FontWeight.w600),
+                              ),
+                              style: OutlinedButton.styleFrom(
+                                foregroundColor: AppTheme.primaryGreen,
+                                side: const BorderSide(color: AppTheme.primaryGreen),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 14),
+
+                    // ID / Concession Document Box
+                    Expanded(
+                      child: Container(
+                        padding: const EdgeInsets.all(14),
+                        decoration: BoxDecoration(
+                          color: _pickedDocument != null ? AppTheme.mintGreen.withValues(alpha: 0.4) : AppTheme.backgroundCard,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: _pickedDocument != null ? AppTheme.primaryGreen : Colors.grey.shade300,
+                            width: _pickedDocument != null ? 1.5 : 1.0,
+                          ),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                const Icon(Icons.description_outlined, size: 20, color: AppTheme.primaryGreen),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    'ID / Concession Proof',
+                                    style: GoogleFonts.outfit(fontSize: 13, fontWeight: FontWeight.bold, color: AppTheme.textDark),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 8),
+                            if (_pickedDocument != null) ...[
+                              Row(
+                                children: [
+                                  const Icon(Icons.file_present_rounded, size: 28, color: AppTheme.primaryGreen),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: Text(
+                                      _pickedDocument!.name,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: GoogleFonts.inter(fontSize: 11.5, fontWeight: FontWeight.w600),
+                                    ),
+                                  ),
+                                  IconButton(
+                                    padding: EdgeInsets.zero,
+                                    constraints: const BoxConstraints(),
+                                    icon: const Icon(Icons.cancel, size: 18, color: Colors.grey),
+                                    onPressed: _isSubmitting ? null : () => setState(() => _pickedDocument = null),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 6),
+                            ],
+                            OutlinedButton.icon(
+                              onPressed: _isSubmitting || _isRegistrationExpired ? null : _pickDocument,
+                              icon: Icon(_pickedDocument == null ? Icons.attach_file : Icons.refresh, size: 16),
+                              label: Text(
+                                _pickedDocument == null ? 'Select Document' : 'Change Document',
+                                style: GoogleFonts.inter(fontSize: 11.5, fontWeight: FontWeight.w600),
+                              ),
+                              style: OutlinedButton.styleFrom(
+                                foregroundColor: AppTheme.primaryGreen,
+                                side: const BorderSide(color: AppTheme.primaryGreen),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
                 const SizedBox(height: 20),
 
-                // Fee Summary Box
+                // Section 3: Fee Summary Box
                 Container(
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
@@ -650,13 +964,41 @@ class _EventRegistrationDialogState extends State<EventRegistrationDialog> {
                         },
                   controlAffinity: ListTileControlAffinity.leading,
                   title: Text(
-                    'I confirm that the information provided is accurate, and I agree to bring 2 passport photos and Aadhaar photocopy to RAMA Foundation on the training day.',
+                    'I confirm that the information and documents provided are genuine, and I agree to the RAMAF registration guidelines.',
                     style: GoogleFonts.inter(fontSize: 12, color: AppTheme.textDark),
                   ),
                 ),
                 const SizedBox(height: 24),
 
-                // Action Buttons
+                // Action Buttons & Progress state
+                if (_isSubmitting)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 16),
+                    child: Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: AppTheme.mintGreen.withValues(alpha: 0.5),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          const SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(strokeWidth: 2, color: AppTheme.primaryGreen),
+                          ),
+                          const SizedBox(width: 12),
+                          Text(
+                            _submitStatusText,
+                            style: GoogleFonts.inter(fontSize: 12.5, fontWeight: FontWeight.w600, color: AppTheme.primaryGreen),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+
                 Row(
                   mainAxisAlignment: MainAxisAlignment.end,
                   children: [
@@ -676,30 +1018,24 @@ class _EventRegistrationDialogState extends State<EventRegistrationDialog> {
                         padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 15),
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                       ),
-                      child: _isSubmitting
-                          ? const SizedBox(
-                              width: 20,
-                              height: 20,
-                              child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
-                            )
-                          : Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(
-                                  _effectiveFee > 0 ? Icons.payment : Icons.check_circle_outline,
-                                  size: 18,
-                                ),
-                                const SizedBox(width: 8),
-                                Text(
-                                  _isRegistrationExpired
-                                      ? 'Registration Closed'
-                                      : _effectiveFee > 0
-                                          ? 'Pay ₹${_effectiveFee.toStringAsFixed(0)} & Register'
-                                          : 'Complete Free Registration',
-                                  style: GoogleFonts.outfit(fontWeight: FontWeight.bold),
-                                ),
-                              ],
-                            ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            _effectiveFee > 0 ? Icons.payment : Icons.check_circle_outline,
+                            size: 18,
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            _isRegistrationExpired
+                                ? 'Registration Closed'
+                                : _effectiveFee > 0
+                                    ? 'Pay ₹${_effectiveFee.toStringAsFixed(0)} & Register'
+                                    : 'Complete Free Registration',
+                            style: GoogleFonts.outfit(fontWeight: FontWeight.bold),
+                          ),
+                        ],
+                      ),
                     ),
                   ],
                 ),

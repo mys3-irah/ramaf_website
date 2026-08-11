@@ -17,7 +17,9 @@ class RegistrationData {
   final String category;
   final bool isConcessionApplied;
   final double feePaid;
-  final String paymentId;
+  final String? photoUrl;
+  final String? documentUrl;
+  final String? paymentId;
   final String paymentStatus; // 'Paid', 'Exempted', 'Pending'
   final DateTime registrationDate;
 
@@ -35,7 +37,9 @@ class RegistrationData {
     required this.category,
     required this.isConcessionApplied,
     required this.feePaid,
-    required this.paymentId,
+    this.photoUrl,
+    this.documentUrl,
+    this.paymentId,
     required this.paymentStatus,
     required this.registrationDate,
   });
@@ -54,7 +58,9 @@ class RegistrationData {
       'category': category,
       'isConcessionApplied': isConcessionApplied,
       'feePaid': feePaid,
-      'paymentId': paymentId,
+      'photoUrl': photoUrl ?? '',
+      'documentUrl': documentUrl ?? '',
+      'paymentId': paymentId ?? '',
       'paymentStatus': paymentStatus,
       'registrationDate': Timestamp.fromDate(registrationDate),
       'createdAt': FieldValue.serverTimestamp(),
