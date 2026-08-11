@@ -4,7 +4,6 @@ import 'package:url_launcher/url_launcher.dart';
 import '../models/media_item.dart';
 import '../services/firebase_service.dart';
 import '../theme/app_theme.dart';
-import '../widgets/add_media_dialog.dart';
 
 class MediaSection extends StatefulWidget {
   const MediaSection({super.key});
@@ -128,17 +127,10 @@ class _MediaSectionState extends State<MediaSection> {
     }
   }
 
-  void _openAddMediaDialog() {
-    showDialog(
-      context: context,
-      builder: (context) => const AddMediaDialog(),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     final double width = MediaQuery.of(context).size.width;
-    final List<String> categories = ['All', 'Press', 'Photo', 'Video', 'Document'];
+    final List<String> categories = ['All', 'Press', 'Photo', 'Video'];
 
     return Container(
       width: double.infinity,
@@ -177,7 +169,7 @@ class _MediaSectionState extends State<MediaSection> {
               ),
               const SizedBox(height: 16),
               Text(
-                'Access our latest newspaper press clippings, event galleries, training videos, and official documents stored securely in the cloud.',
+                'Access our latest newspaper press clippings, workshop event galleries, and training video streams.',
                 textAlign: TextAlign.center,
                 style: GoogleFonts.inter(
                   fontSize: 14,
@@ -186,62 +178,42 @@ class _MediaSectionState extends State<MediaSection> {
               ),
               const SizedBox(height: 36),
 
-              // Categories Filters & Admin Add Button
+              // Categories Filters
               Wrap(
                 alignment: WrapAlignment.center,
                 crossAxisAlignment: WrapCrossAlignment.center,
                 spacing: 12,
                 runSpacing: 12,
-                children: [
-                  ...categories.map((cat) {
-                    final bool isSelected = _selectedCategory == cat;
-                    String displayLabel = cat;
-                    if (cat == 'Press') displayLabel = 'Press Releases';
-                    if (cat == 'Photo') displayLabel = 'Work Photos';
-                    if (cat == 'Video') displayLabel = 'Videos';
-                    if (cat == 'Document') displayLabel = 'Documents';
+                children: categories.map((cat) {
+                  final bool isSelected = _selectedCategory == cat;
+                  String displayLabel = cat;
+                  if (cat == 'Press') displayLabel = 'Press Releases';
+                  if (cat == 'Photo') displayLabel = 'Work Photos';
+                  if (cat == 'Video') displayLabel = 'Videos';
 
-                    return ChoiceChip(
-                      label: Text(displayLabel),
-                      selected: isSelected,
-                      onSelected: (selected) {
-                        if (selected) {
-                          setState(() => _selectedCategory = cat);
-                        }
-                      },
-                      selectedColor: AppTheme.primaryGreen,
-                      backgroundColor: AppTheme.mintGreen,
-                      labelStyle: GoogleFonts.outfit(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 14,
-                        color: isSelected ? Colors.white : AppTheme.primaryGreen,
-                      ),
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(30),
-                        side: BorderSide.none,
-                      ),
-                      showCheckmark: false,
-                    );
-                  }),
-                  // Add Media / Press Release Action Button
-                  ElevatedButton.icon(
-                    onPressed: _openAddMediaDialog,
-                    icon: const Icon(Icons.cloud_upload_outlined, size: 16),
-                    label: const Text('Add Press / Media'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppTheme.mintGreen,
-                      foregroundColor: AppTheme.primaryGreen,
-                      elevation: 0,
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(30),
-                        side: const BorderSide(color: AppTheme.primaryGreen, width: 1.2),
-                      ),
-                      textStyle: GoogleFonts.outfit(fontWeight: FontWeight.bold, fontSize: 13),
+                  return ChoiceChip(
+                    label: Text(displayLabel),
+                    selected: isSelected,
+                    onSelected: (selected) {
+                      if (selected) {
+                        setState(() => _selectedCategory = cat);
+                      }
+                    },
+                    selectedColor: AppTheme.primaryGreen,
+                    backgroundColor: AppTheme.mintGreen,
+                    labelStyle: GoogleFonts.outfit(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 14,
+                      color: isSelected ? Colors.white : AppTheme.primaryGreen,
                     ),
-                  ),
-                ],
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(30),
+                      side: BorderSide.none,
+                    ),
+                    showCheckmark: false,
+                  );
+                }).toList(),
               ),
               const SizedBox(height: 50),
 
