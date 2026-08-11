@@ -19,6 +19,18 @@ class _MediaSectionState extends State<MediaSection> {
   // Seed / fallback items for when Firestore is initializing or offline
   final List<MediaItem> _fallbackMediaList = const [
     MediaItem(
+      id: 'm_training_apr25',
+      title: '2-Day Practical Mushroom Cultivation & Spawning Workshop',
+      category: 'Photo',
+      date: '28 - 29 April 2025',
+      description: 'Comprehensive 2-day practical training workshop on oyster & button mushroom cultivation, substrate preparation, sterilization, spawn inoculation, and climate control at RAMA Foundation Training Center.',
+      mediaUrl: 'https://res.cloudinary.com/zu7a4qdi/image/upload/v1786431245/sana.jpg',
+      galleryUrls: [
+        'https://res.cloudinary.com/zu7a4qdi/image/upload/v1786431245/sana.jpg',
+      ],
+      fallbackIcon: Icons.photo_library_outlined,
+    ),
+    MediaItem(
       id: 'm_sana',
       title: 'Sanaleibak Press Release: Vocational Training Initiative',
       category: 'Press',
@@ -538,79 +550,269 @@ class _MediaSectionState extends State<MediaSection> {
   }
 
   void _showPhotoZoom(BuildContext context, MediaItem item) {
+    // Collect all available photos (cover + gallery)
+    final List<String> allPhotos = [
+      if (item.mediaUrl.isNotEmpty) item.mediaUrl,
+      ...item.galleryUrls.where((u) => u != item.mediaUrl),
+    ];
+
+    int activeIndex = 0;
+
     showDialog(
       context: context,
       builder: (context) {
-        return Dialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-          clipBehavior: Clip.antiAlias,
-          child: Container(
-            constraints: const BoxConstraints(maxWidth: 640),
-            child: SingleChildScrollView(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  if (item.mediaUrl.isNotEmpty)
-                    item.mediaUrl.startsWith('http')
-                        ? Image.network(
-                            item.mediaUrl,
-                            fit: BoxFit.cover,
-                            width: double.infinity,
-                            loadingBuilder: (context, child, progress) {
-                              if (progress == null) return child;
-                              return Container(
-                                height: 260,
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            final String currentPhoto = allPhotos.isNotEmpty ? allPhotos[activeIndex] : '';
+            final bool isNetwork = currentPhoto.startsWith('http');
+            final bool hasVideo = item.videoUrl != null && item.videoUrl!.isNotEmpty;
+
+            return Dialog(
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+              clipBehavior: Clip.antiAlias,
+              insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+              child: Container(
+                constraints: const BoxConstraints(maxWidth: 720),
+                child: SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      // Main Photo View with Navigation Arrows
+                      Container(
+                        height: 360,
+                        width: double.infinity,
+                        color: Colors.black,
+                        child: Stack(
+                          alignment: Alignment.center,
+                          children: [
+                            if (currentPhoto.isNotEmpty)
+                              isNetwork
+                                  ? Image.network(
+                                      currentPhoto,
+                                      fit: BoxFit.contain,
+                                      width: double.infinity,
+                                      height: 360,
+                                      loadingBuilder: (context, child, progress) {
+                                        if (progress == null) return child;
+                                        return const Center(
+                                          child: CircularProgressIndicator(color: AppTheme.primaryGreen),
+                                        );
+                                      },
+                                      errorBuilder: (context, error, stackTrace) {
+                                        return Container(
+                                          color: Colors.black87,
+                                          child: const Center(
+                                            child: Icon(Icons.broken_image, size: 64, color: Colors.white38),
+                                          ),
+                                        );
+                                      },
+                                    )
+                                  : Image.asset(
+                                      currentPhoto,
+                                      fit: BoxFit.contain,
+                                      width: double.infinity,
+                                      height: 360,
+                                    )
+                            else
+                              Container(
                                 color: AppTheme.mintGreen,
-                                child: const Center(
-                                  child: CircularProgressIndicator(color: AppTheme.primaryGreen),
+                                child: Center(
+                                  child: Icon(item.fallbackIcon ?? Icons.photo_library_outlined, size: 72, color: AppTheme.primaryGreen),
                                 ),
-                              );
-                            },
-                            errorBuilder: (context, error, stackTrace) {
-                              return Container(
-                                height: 260,
-                                color: AppTheme.mintGreen,
-                                child: Icon(item.fallbackIcon ?? Icons.image, size: 64, color: AppTheme.primaryGreen),
-                              );
-                            },
-                          )
-                        : Image.asset(item.mediaUrl, fit: BoxFit.cover, width: double.infinity)
-                  else
-                    Container(
-                      height: 280,
-                      width: double.infinity,
-                      color: AppTheme.mintGreen,
-                      child: Icon(item.fallbackIcon ?? Icons.camera_alt_outlined, size: 72, color: AppTheme.primaryGreen),
-                    ),
-                  Container(
-                    color: Colors.white,
-                    padding: const EdgeInsets.all(24),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          item.date.toUpperCase(),
-                          style: GoogleFonts.outfit(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.accentGreen),
+                              ),
+
+                            // Prev Arrow
+                            if (allPhotos.length > 1)
+                              Positioned(
+                                left: 12,
+                                child: CircleAvatar(
+                                  backgroundColor: Colors.black54,
+                                  child: IconButton(
+                                    icon: const Icon(Icons.chevron_left, color: Colors.white),
+                                    onPressed: () {
+                                      setDialogState(() {
+                                        activeIndex = (activeIndex - 1 + allPhotos.length) % allPhotos.length;
+                                      });
+                                    },
+                                  ),
+                                ),
+                              ),
+
+                            // Next Arrow
+                            if (allPhotos.length > 1)
+                              Positioned(
+                                right: 12,
+                                child: CircleAvatar(
+                                  backgroundColor: Colors.black54,
+                                  child: IconButton(
+                                    icon: const Icon(Icons.chevron_right, color: Colors.white),
+                                    onPressed: () {
+                                      setDialogState(() {
+                                        activeIndex = (activeIndex + 1) % allPhotos.length;
+                                      });
+                                    },
+                                  ),
+                                ),
+                              ),
+
+                            // Counter badge
+                            if (allPhotos.length > 1)
+                              Positioned(
+                                bottom: 12,
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                                  decoration: BoxDecoration(
+                                    color: Colors.black.withValues(alpha: 0.65),
+                                    borderRadius: BorderRadius.circular(20),
+                                  ),
+                                  child: Text(
+                                    '${activeIndex + 1} / ${allPhotos.length}',
+                                    style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold),
+                                  ),
+                                ),
+                              ),
+                          ],
                         ),
-                        const SizedBox(height: 4),
-                        Text(item.title, style: GoogleFonts.outfit(fontSize: 18, fontWeight: FontWeight.bold)),
-                        const SizedBox(height: 8),
-                        Text(item.description, style: GoogleFonts.inter(fontSize: 14, color: AppTheme.textMuted)),
-                        const SizedBox(height: 20),
-                        Align(
-                          alignment: Alignment.centerRight,
-                          child: TextButton(
-                            onPressed: () => Navigator.of(context).pop(),
-                            child: const Text('Close'),
+                      ),
+
+                      // Thumbnail Strip if multiple photos
+                      if (allPhotos.length > 1)
+                        Container(
+                          color: Colors.grey.shade900,
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                          child: SingleChildScrollView(
+                            scrollDirection: Axis.horizontal,
+                            child: Row(
+                              children: List.generate(allPhotos.length, (idx) {
+                                final thumb = allPhotos[idx];
+                                final isSelected = idx == activeIndex;
+                                return GestureDetector(
+                                  onTap: () => setDialogState(() => activeIndex = idx),
+                                  child: Container(
+                                    margin: const EdgeInsets.only(right: 10),
+                                    width: 56,
+                                    height: 56,
+                                    decoration: BoxDecoration(
+                                      borderRadius: BorderRadius.circular(8),
+                                      border: Border.all(
+                                        color: isSelected ? AppTheme.accentGreen : Colors.transparent,
+                                        width: 2.5,
+                                      ),
+                                    ),
+                                    clipBehavior: Clip.antiAlias,
+                                    child: thumb.startsWith('http')
+                                        ? Image.network(thumb, fit: BoxFit.cover)
+                                        : Image.asset(thumb, fit: BoxFit.cover),
+                                  ),
+                                );
+                              }),
+                            ),
                           ),
                         ),
-                      ],
-                    ),
+
+                      // Content Details
+                      Container(
+                        color: Colors.white,
+                        padding: const EdgeInsets.all(24),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                  decoration: BoxDecoration(
+                                    color: AppTheme.mintGreen,
+                                    borderRadius: BorderRadius.circular(20),
+                                  ),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      const Icon(Icons.event, size: 14, color: AppTheme.primaryGreen),
+                                      const SizedBox(width: 6),
+                                      Text(
+                                        item.date.toUpperCase(),
+                                        style: GoogleFonts.outfit(
+                                          fontSize: 11,
+                                          fontWeight: FontWeight.bold,
+                                          color: AppTheme.primaryGreen,
+                                          letterSpacing: 1.0,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                if (allPhotos.length > 1) ...[
+                                  const SizedBox(width: 8),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                    decoration: BoxDecoration(
+                                      color: Colors.grey.shade100,
+                                      borderRadius: BorderRadius.circular(20),
+                                    ),
+                                    child: Text(
+                                      '${allPhotos.length} Photos',
+                                      style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w600, color: Colors.grey.shade700),
+                                    ),
+                                  ),
+                                ],
+                              ],
+                            ),
+                            const SizedBox(height: 10),
+                            Text(
+                              item.title,
+                              style: GoogleFonts.outfit(fontSize: 20, fontWeight: FontWeight.bold, color: AppTheme.textDark),
+                            ),
+                            const SizedBox(height: 10),
+                            Text(
+                              item.description,
+                              style: GoogleFonts.inter(fontSize: 14, color: AppTheme.textMuted, height: 1.5),
+                            ),
+                            const SizedBox(height: 24),
+
+                            // Actions
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                if (hasVideo)
+                                  ElevatedButton.icon(
+                                    onPressed: () {
+                                      Navigator.of(context).pop();
+                                      _showVideoPlayer(context, item);
+                                    },
+                                    icon: const Icon(Icons.play_circle_filled, size: 18),
+                                    label: const Text('Play Workshop Video'),
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: Colors.red.shade700,
+                                      foregroundColor: Colors.white,
+                                    ),
+                                  )
+                                else if (item.externalLink != null && item.externalLink!.isNotEmpty)
+                                  OutlinedButton.icon(
+                                    onPressed: () => _openUrl(item.externalLink!),
+                                    icon: const Icon(Icons.open_in_new, size: 16),
+                                    label: const Text('Open Link'),
+                                    style: OutlinedButton.styleFrom(
+                                      foregroundColor: AppTheme.primaryGreen,
+                                    ),
+                                  )
+                                else
+                                  const SizedBox(),
+                                TextButton(
+                                  onPressed: () => Navigator.of(context).pop(),
+                                  child: const Text('Close'),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
                   ),
-                ],
+                ),
               ),
-            ),
-          ),
+            );
+          },
         );
       },
     );
@@ -634,6 +836,7 @@ class _MediaCardState extends State<_MediaCard> {
   Widget build(BuildContext context) {
     final bool isNetwork = widget.item.mediaUrl.startsWith('http');
     final bool hasImage = widget.item.mediaUrl.isNotEmpty;
+    final int totalPhotos = 1 + widget.item.galleryUrls.where((u) => u != widget.item.mediaUrl).length;
 
     return MouseRegion(
       onEnter: (_) => setState(() => _isHovered = true),
@@ -754,27 +957,48 @@ class _MediaCardState extends State<_MediaCard> {
                       ),
                     ),
 
-                    // Cloud badge if hosted on Cloudinary
-                    if (isNetwork)
-                      Positioned(
-                        bottom: 10,
-                        left: 10,
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                          decoration: BoxDecoration(
-                            color: Colors.black.withValues(alpha: 0.65),
-                            borderRadius: BorderRadius.circular(6),
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: const [
-                              Icon(Icons.cloud_done_rounded, size: 12, color: Colors.white),
-                              SizedBox(width: 4),
-                              Text('Cloud', style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold)),
-                            ],
-                          ),
-                        ),
+                    // Multi-photo count pill / Cloud badge
+                    Positioned(
+                      bottom: 10,
+                      left: 10,
+                      child: Row(
+                        children: [
+                          if (isNetwork)
+                            Container(
+                              margin: const EdgeInsets.only(right: 6),
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                              decoration: BoxDecoration(
+                                color: Colors.black.withValues(alpha: 0.65),
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: const [
+                                  Icon(Icons.cloud_done_rounded, size: 12, color: Colors.white),
+                                  SizedBox(width: 4),
+                                  Text('Cloud', style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold)),
+                                ],
+                              ),
+                            ),
+                          if (totalPhotos > 1)
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                              decoration: BoxDecoration(
+                                color: AppTheme.primaryGreen.withValues(alpha: 0.9),
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  const Icon(Icons.photo_library, size: 12, color: Colors.white),
+                                  const SizedBox(width: 4),
+                                  Text('$totalPhotos Photos', style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold)),
+                                ],
+                              ),
+                            ),
+                        ],
                       ),
+                    ),
                   ],
                 ),
               ),
