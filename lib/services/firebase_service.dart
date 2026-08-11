@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/foundation.dart';
 import '../firebase_options.dart';
+import '../models/media_item.dart';
 
 class RegistrationData {
   final String? id;
@@ -142,5 +143,51 @@ class FirebaseService {
       }
     }
     return true;
+  }
+
+  /// Real-time stream of media items from Firestore collection 'media_items'
+  Stream<List<MediaItem>> streamMediaItems() {
+    if (!_isFirebaseInitialized) {
+      return Stream.value([]);
+    }
+
+    return FirebaseFirestore.instance
+        .collection('media_items')
+        .orderBy('createdAt', descending: true)
+        .snapshots()
+        .map((snapshot) {
+      return snapshot.docs.map((doc) {
+        return MediaItem.fromMap(doc.data(), docId: doc.id);
+      }).toList();
+    });
+  }
+
+  /// Add new media item (press release, photo, video, document) to Firestore
+  Future<bool> addMediaItem(MediaItem item) async {
+    if (_isFirebaseInitialized) {
+      try {
+        await FirebaseFirestore.instance.collection('media_items').add(item.toMap());
+        debugPrint('✅ Media item published to Firestore.');
+        return true;
+      } catch (e) {
+        debugPrint('Firestore add media error: $e');
+        return false;
+      }
+    }
+    return false;
+  }
+
+  /// Delete a media item from Firestore by document ID
+  Future<bool> deleteMediaItem(String docId) async {
+    if (_isFirebaseInitialized && docId.isNotEmpty) {
+      try {
+        await FirebaseFirestore.instance.collection('media_items').doc(docId).delete();
+        return true;
+      } catch (e) {
+        debugPrint('Firestore delete media error: $e');
+        return false;
+      }
+    }
+    return false;
   }
 }

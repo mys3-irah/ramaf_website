@@ -5,13 +5,13 @@ import '../theme/app_theme.dart';
 class BoardMember {
   final String name;
   final String role;
-  final String initials;
+  final String imagePath;
   final String description;
 
   const BoardMember({
     required this.name,
     required this.role,
-    required this.initials,
+    required this.imagePath,
     required this.description,
   });
 }
@@ -23,19 +23,19 @@ class AboutSection extends StatelessWidget {
     BoardMember(
       name: 'Pheiroijam Saroja Devi',
       role: 'Chairperson',
-      initials: 'SD',
+      imagePath: 'assets/images/chairperson.jpg',
       description: 'Guiding the foundation\'s strategic vision and ensuring compliance with community development targets.',
     ),
     BoardMember(
       name: 'Soram Rajendra Kumar',
       role: 'Managing Director & Founder',
-      initials: 'RK',
+      imagePath: 'assets/images/md red.jpg',
       description: 'Active founder since 2000. Steers day-to-day operations, training curriculums, and local trust partnerships.',
     ),
     BoardMember(
       name: 'Lamabam Manorama Devi',
       role: 'Treasurer',
-      initials: 'MD',
+      imagePath: 'assets/images/treasurer.jpg',
       description: 'Oversees financial assistance programs, budget allocations, and organic farm project audit streams.',
     ),
   ];
@@ -153,7 +153,7 @@ class AboutSection extends StatelessWidget {
               ),
               const SizedBox(height: 48),
 
-              // Featured MD Card
+              // Featured MD Card with Picture
               Center(child: _buildMDCard(context, _members[1])),
               const SizedBox(height: 32),
 
@@ -250,21 +250,24 @@ class AboutSection extends StatelessWidget {
     return Column(
       children: const [
         _HoverCard(
-          icon: Icons.eco_outlined,
-          title: 'Mission Statement',
-          description: 'To establish and administer different institutions or centres and collaborate with any like-minded organisations in order to enable overall development activities, schemes, and programs.',
-        ),
-        SizedBox(height: 24),
-        _HoverCard(
-          icon: Icons.lightbulb_outline_rounded,
+          icon: Icons.lightbulb_outline,
           title: 'Our Vision',
-          description: 'To promote activities in the field of Health, Education, Economy, and Social to bring service, unity, and prosperity for the upliftment of backward classes including SC/ST/OBC, disabled individuals, orphans, and rural citizens.',
+          description:
+              'To empower every rural family in Manipur with sustainable vocational skills in agro-tech, mushroom farming, and vermicomposting to achieve self-reliance.',
         ),
         SizedBox(height: 24),
         _HoverCard(
-          icon: Icons.favorite_border_rounded,
-          title: 'Inclusive Focus',
-          description: 'Uplifting minority groups and educationally backward classes in rural areas in particular, and the public in general, irrespective of caste, creed, community, and religion.',
+          icon: Icons.track_changes,
+          title: 'Our Mission',
+          description:
+              'Executing high-yield, grassroots training, establishing community spawn banks, ensuring product buyback, and providing aid to relief camp residents.',
+        ),
+        SizedBox(height: 24),
+        _HoverCard(
+          icon: Icons.volunteer_activism_outlined,
+          title: 'Community Impact',
+          description:
+              'Over two decades of free training sessions across 16 districts, supporting hundreds of entrepreneurs, women SHGs, and agricultural innovators.',
         ),
       ],
     );
@@ -279,7 +282,7 @@ class AboutSection extends StatelessWidget {
       decoration: BoxDecoration(
         color: AppTheme.backgroundCard,
         borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: AppTheme.primaryGreen.withOpacity(0.1), width: 1.5),
+        border: Border.all(color: AppTheme.primaryGreen.withValues(alpha: 0.15), width: 1.5),
         boxShadow: AppTheme.softShadow,
       ),
       padding: const EdgeInsets.all(32),
@@ -287,33 +290,39 @@ class AboutSection extends StatelessWidget {
         direction: isWide ? Axis.horizontal : Axis.vertical,
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
+          // Founder & MD Photo
           Container(
-            width: 120,
-            height: 120,
+            width: 130,
+            height: 130,
             decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [AppTheme.primaryGreen, AppTheme.accentGreen],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
               shape: BoxShape.circle,
+              border: Border.all(color: AppTheme.primaryGreen, width: 3),
               boxShadow: [
                 BoxShadow(
-                  color: AppTheme.primaryGreen.withOpacity(0.2),
-                  blurRadius: 16,
+                  color: AppTheme.primaryGreen.withValues(alpha: 0.25),
+                  blurRadius: 18,
                   offset: const Offset(0, 8),
                 ),
               ],
             ),
-            child: Center(
-              child: Text(
-                md.initials,
-                style: GoogleFonts.outfit(
-                  fontSize: 36,
-                  fontWeight: FontWeight.w900,
-                  color: Colors.white,
-                ),
-              ),
+            child: ClipOval(
+              child: md.imagePath.isNotEmpty
+                  ? Image.asset(
+                      md.imagePath,
+                      fit: BoxFit.cover,
+                      width: 130,
+                      height: 130,
+                      errorBuilder: (context, error, stackTrace) {
+                        return Container(
+                          color: AppTheme.mintGreen,
+                          child: const Icon(Icons.person, size: 60, color: AppTheme.primaryGreen),
+                        );
+                      },
+                    )
+                  : Container(
+                      color: AppTheme.mintGreen,
+                      child: const Icon(Icons.person, size: 60, color: AppTheme.primaryGreen),
+                    ),
             ),
           ),
           const SizedBox(width: 32, height: 24),
@@ -325,7 +334,7 @@ class AboutSection extends StatelessWidget {
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                   decoration: BoxDecoration(
-                    color: AppTheme.primaryGreen.withOpacity(0.1),
+                    color: AppTheme.primaryGreen.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(20),
                   ),
                   child: Text(
@@ -376,22 +385,31 @@ class AboutSection extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // Member Image / Avatar
           Container(
-            width: 60,
-            height: 60,
+            width: 64,
+            height: 64,
             decoration: BoxDecoration(
               color: AppTheme.mintGreen,
               shape: BoxShape.circle,
+              border: Border.all(color: AppTheme.primaryGreen.withValues(alpha: 0.2), width: 1.5),
             ),
-            child: Center(
-              child: Text(
-                member.initials,
-                style: GoogleFonts.outfit(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  color: AppTheme.primaryGreen,
-                ),
-              ),
+            child: ClipOval(
+              child: member.imagePath.isNotEmpty
+                  ? Image.asset(
+                      member.imagePath,
+                      fit: BoxFit.cover,
+                      width: 64,
+                      height: 64,
+                      errorBuilder: (context, error, stackTrace) {
+                        return const Center(
+                          child: Icon(Icons.person_outline_rounded, size: 32, color: AppTheme.primaryGreen),
+                        );
+                      },
+                    )
+                  : const Center(
+                      child: Icon(Icons.person_outline_rounded, size: 32, color: AppTheme.primaryGreen),
+                    ),
             ),
           ),
           const SizedBox(width: 20),
@@ -460,13 +478,13 @@ class _HoverCardState extends State<_HoverCard> {
       onExit: (_) => setState(() => _isHovered = false),
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 250),
-        transform: _isHovered ? (Matrix4.identity()..translate(0, -6, 0)) : Matrix4.identity(),
+        transform: Matrix4.translationValues(0, _isHovered ? -6.0 : 0.0, 0),
         padding: const EdgeInsets.all(24),
         decoration: BoxDecoration(
           color: AppTheme.backgroundCard,
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
-            color: _isHovered ? AppTheme.accentGreen.withOpacity(0.3) : Colors.transparent,
+            color: _isHovered ? AppTheme.accentGreen.withValues(alpha: 0.3) : Colors.transparent,
             width: 1.5,
           ),
           boxShadow: _isHovered ? AppTheme.hoverShadow : AppTheme.softShadow,

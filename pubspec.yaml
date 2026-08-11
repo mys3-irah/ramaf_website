@@ -70,6 +70,17 @@ flutter:
     - assets/images/logo.jpg
     - assets/images/WhatsApp Image 2023-12-20 at 14.16.36_a40e1cbc.jpg
     - assets/images/hero_bg.png
+    - assets/images/agricultural and bio chemicals.png
+    - assets/images/fresh mush.png
+    - assets/images/rat ear.png
+    - assets/images/shiitake.png
+    - assets/images/chaff cuter.png
+    - assets/images/humidifier.jpeg
+    - assets/images/md.jpg
+    - assets/images/treasurer.jpg
+    - assets/images/chairperson.jpg
+    - assets/images/md red.jpg
+    - assets/images/sana.jpg
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images
